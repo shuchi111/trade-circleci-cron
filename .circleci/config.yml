@@ -75,6 +75,7 @@ jobs:
       DEEP_THINK_LLM: "glm-5.2"
       QUICK_THINK_LLM: "glm-5.2"
       LLM_BACKEND_URL: "https://api.z.ai/api/anthropic"
+      ANTHROPIC_BASE_URL: "https://api.z.ai/api/anthropic"
     steps:
       - checkout
       - export-pipeline-env

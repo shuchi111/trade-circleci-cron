@@ -47,15 +47,23 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 logger = logging.getLogger("write_recommendation_cache")
 
 
+_ZAI_ANTHROPIC_URL = "https://api.z.ai/api/anthropic"
+
+
 def _build_config() -> dict:
     config = DEFAULT_CONFIG.copy()
-    config["llm_provider"] = os.getenv("LLM_PROVIDER", "anthropic").strip()
+    provider = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
     backend = (
         (os.getenv("LLM_BACKEND_URL") or "").strip()
         or (os.getenv("ANTHROPIC_BASE_URL") or "").strip()
-        or "https://api.z.ai/api/anthropic"
-    )
-    config["backend_url"] = backend.rstrip("/")
+        or _ZAI_ANTHROPIC_URL
+    ).rstrip("/")
+    # Z.ai bills GLM on the Anthropic gateway (/anthropic/v1/messages), not /paas/v4.
+    if provider == "glm" or "/paas/" in backend:
+        provider = "anthropic"
+        backend = _ZAI_ANTHROPIC_URL
+    config["llm_provider"] = provider
+    config["backend_url"] = backend
     config["deep_think_llm"] = os.getenv("DEEP_THINK_LLM", "glm-5.2")
     config["quick_think_llm"] = os.getenv("QUICK_THINK_LLM", "glm-5.2")
     config["max_debate_rounds"] = int(os.getenv("MAX_DEBATE_ROUNDS", "1"))
@@ -315,7 +323,11 @@ def run_single_recommendation(
     ticker = ticker.strip().upper()
     cfg = _build_config()
     if not cfg.get("api_key"):
-        return {"ok": False, "error": "Missing Z_API_KEY or GLM_API_KEY", "ticker": ticker}
+        return {
+            "ok": False,
+            "error": "Missing Z_API_KEY, GLM_API_KEY, or ANTHROPIC_AUTH_TOKEN",
+            "ticker": ticker,
+        }
 
     db_url = resolve_psycopg2_url()
     if not db_url:
